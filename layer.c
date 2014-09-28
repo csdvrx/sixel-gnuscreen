@@ -440,6 +440,7 @@ int x, y;
   struct viewport *vp;
   int xs2, xe2, y2, len, len2;
   struct mchar or;
+  int i;
 
   if (x + n > l->l_width)
     n = l->l_width - x;
@@ -474,18 +475,15 @@ int x, y;
 	  continue;
 	GotoPos(xs2, y2);
 	SetRendition(r);
+	for (i = xs2; i <= xe2; ++i)
+	  PUTCHARLP(' ');
+
+	GotoPos(xs2, y2);
+	SetRendition(r);
 	len2 = xe2 - (x + vp->v_xoff) + 1;
 	if (len2 > len)
 	  len2 = len;
 	PutWinMsg(s, xs2 - x - vp->v_xoff, len2);
-	xs2 = x + vp->v_xoff + len2;
-	if (xs2 < vp->v_xs)
-	  xs2 = vp->v_xs;
-	or = D_rend;
-	GotoPos(xs2, y2);
-	SetRendition(&or);
-	while (xs2++ <= xe2)
-	  PUTCHARLP(' ');
       }
   );
 }

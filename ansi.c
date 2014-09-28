@@ -1500,8 +1500,24 @@ int c;
 {
   if (curr->w_stringp >= curr->w_string + MAXSTR - 1)
     curr->w_state = LIT;
+# ifdef UTF8
+  else if (c < 0x80)
+    *(curr->w_stringp)++ = c;
+  else if (c < 0x800)
+    {
+      *(curr->w_stringp)++ = (c >> 6) | 0xc0;
+      *(curr->w_stringp)++ = (c & 0x3f) | 0xc0;
+    }
+  else /* if (c < 0x10000) */
+    {
+      *(curr->w_stringp)++ = (c >> 12) | 0xe0;
+      *(curr->w_stringp)++ = (c >> 6) & 0x3f | 0x80;
+      *(curr->w_stringp)++ = (c & 0x3f) | 0x80;
+    }
+# else
   else
     *(curr->w_stringp)++ = c;
+# endif
 }
 
 /*
@@ -1612,7 +1628,7 @@ StringEnd()
 	}
       return -1;
     case DCS:
-      LAY_DISPLAYS(&curr->w_layer, AddStr(curr->w_string));
+      LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
       break;
     case AKA:
       if (curr->w_title == curr->w_akabuf && !*curr->w_string)
@@ -2246,7 +2262,11 @@ int l;
       c = (unsigned char)*s++;
       if (c == 0)
 	break;
+#ifdef UTF8
+      if (c < 32)
+#else
       if (c < 32 || c == 127 || (c >= 128 && c < 160 && p->w_c1))
+#endif
 	continue;
       p->w_akachange[i++] = c;
     }

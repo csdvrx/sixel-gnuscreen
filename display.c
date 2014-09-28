@@ -2902,7 +2902,7 @@ char *s;
   D_xtermosc[i] = 1;
   AddStr("\033]");
   AddStr(oscs[i][0]);
-  AddStr(s);
+  AddRawStr(s);
   AddChar(7);
 }
 
@@ -2938,6 +2938,18 @@ char *str;
       return;
     }
 #endif
+  while ((c = *str++))
+    AddChar(c);
+}
+
+void
+AddRawStr(str)
+char *str;
+{
+  register char c;
+
+  ASSERT(display);
+
   while ((c = *str++))
     AddChar(c);
 }
