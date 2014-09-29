@@ -174,8 +174,6 @@ static void MBceLine __P((struct win *, int, int, int, int));
 # define CURR_BCE 0
 #endif
 
-int isDCS;
-
 void
 ResetAnsiState(p)
 struct win *p;
@@ -1537,6 +1535,8 @@ isStartingSixel(char *str)
   return 0;
 }
 
+int dcsState ;
+
 /*
  * Do string processing. Returns -1 if output should be suspended
  * until status is gone.
@@ -1645,14 +1645,23 @@ StringEnd()
 	}
       return -1;
     case DCS:
-      if (isDCS)
+      if (dcsState)
         {
           Flush(0);
-          if (*curr->w_string == '\\')	/* XXX It may be "\ ESC P \" */
+	  if (*curr->w_string && curr->w_string[strlen(curr->w_string)-1] == '\x1b')
+	    {
+	      dcsState |= 4;
+	    }
+          else if (dcsState & 4)
             {
-              if (isDCS == 2)	/* is sixel */
+	      dcsState &= ~4;
+	      if (*curr->w_string != '\\')
+	        {
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+		}
+              else if (dcsState == 2)	/* is sixel */
                 {
-                  isDCS = 0;
+                  dcsState = 0;
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("7\x1b[?69l\x1b"));
@@ -1662,7 +1671,7 @@ StringEnd()
                 }
               else
                 {
-                  isDCS = 0;
+		  dcsState = 0;
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
                 }
               Flush(0);
@@ -1696,7 +1705,7 @@ StringEnd()
                   break;
                 }
             }
-          isDCS = 2;
+          dcsState = 2;
           if ((line_height > 0 || (line_height = GetLineHeight()) > 0) &&
               sscanf(curr->w_string+9, "%d;%d;%d;%d", &x, &y, &w, &h) == 4)
             {
@@ -1712,15 +1721,15 @@ StringEnd()
         }
       else
         {
-            isDCS = isprint(*curr->w_string) ? 0 : 1;
+            dcsState = isprint(*curr->w_string) ? 0 : 1;
         }
 
       {
-        int tmp = isDCS;
-        isDCS = 0;
+        int tmp = dcsState;
+        dcsState = 0;
         LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
         Flush(0);
-        isDCS = tmp;
+        dcsState = tmp;
       }
       break;
     case AKA:

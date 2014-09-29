@@ -2976,7 +2976,7 @@ int n;
     AddChar(' ');
 }
 
-extern int isDCS ;
+extern int dcsState ;
 
 void
 Flush(progress)
@@ -2992,7 +2992,7 @@ int progress;
   if (l == 0)
     return;
   ASSERT(l + D_obuffree == D_obuflen);
-  if (D_userfd < 0 || isDCS)
+  if (D_userfd < 0 || dcsState)
     {
       D_obuffree += l;
       D_obufp = D_obuf;
@@ -3258,7 +3258,7 @@ char *data;
   if (D_status_obufpos && size > D_status_obufpos)
     size = D_status_obufpos;
   ASSERT(len >= 0);
-  if (!isDCS) size = write(D_userfd, D_obuf, size);
+  if (!dcsState) size = write(D_userfd, D_obuf, size);
   if (size >= 0) 
     {
       len -= size;
