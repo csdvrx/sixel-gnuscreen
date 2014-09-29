@@ -1648,30 +1648,34 @@ StringEnd()
       if (dcsState)
         {
           Flush(0);
-	  if (*curr->w_string && curr->w_string[strlen(curr->w_string)-1] == '\x1b')
-	    {
-	      dcsState |= 4;
-	    }
+          if (*curr->w_string && curr->w_string[strlen(curr->w_string)-1] == '\x1b')
+            {
+              dcsState |= 4;
+            }
           else if (dcsState & 4)
             {
-	      dcsState &= ~4;
-	      if (*curr->w_string != '\\')
-	        {
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
-		}
-              else if (dcsState == 2)	/* is sixel */
+              dcsState &= ~4;
+              if (*curr->w_string != '\\')
                 {
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+                }
+              else if (dcsState == 2)   /* is sixel */
+                {
+                  char seq[3+11*2+1];
                   dcsState = 0;
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("7\x1b[?69l\x1b"));
-                  if (D_cvlist->c_next)
-                    LAY_DISPLAYS(&curr->w_layer, AddRawStr("[r\x1b"));
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("7\x1b[?69l\x1b["));
+                  if (D_top > 0 || D_bot < D_height - 1)
+                    sprintf(seq, "%d;%dr\x1b", D_top+1, D_bot+1);
+                  else
+                    strcpy(seq, "r\x1b");
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("8"));
                 }
               else
                 {
-		  dcsState = 0;
+                  dcsState = 0;
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
                 }
               Flush(0);
@@ -1687,19 +1691,14 @@ StringEnd()
             {
               if (cv->c_layer->l_bottom == &curr->w_layer)
                 {
-                  char seq[12+11*2+1];
+                  char seq[16+11*4+1];
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
-                  sprintf(seq, "7\x1b[?69h\x1b[%d;%ds\x1b",
+                  sprintf(seq, "7\x1b[?69h\x1b[%d;%ds\x1b[%d;%dr\x1b",
                                cv->c_vplist->v_xoff + 1,
-                               cv->c_vplist->v_xoff + curr->w_layer.l_width);
+                               cv->c_vplist->v_xoff + curr->w_layer.l_width,
+                               cv->c_vplist->v_yoff + 1,
+                               cv->c_vplist->v_yoff + curr->w_layer.l_height);
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
-                  if (D_cvlist->c_next)
-                    {
-                      sprintf(seq, "[%d;%dr\x1b",
-                                   cv->c_vplist->v_yoff + 1,
-                                   cv->c_vplist->v_yoff + curr->w_layer.l_height);
-                      LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
-                    }
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("8"));
                   Flush(0);
                   break;
