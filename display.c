@@ -2976,6 +2976,8 @@ int n;
     AddChar(' ');
 }
 
+extern int isDCS ;
+
 void
 Flush(progress)
 int progress;
@@ -2990,7 +2992,7 @@ int progress;
   if (l == 0)
     return;
   ASSERT(l + D_obuffree == D_obuflen);
-  if (D_userfd < 0)
+  if (D_userfd < 0 || isDCS)
     {
       D_obuffree += l;
       D_obufp = D_obuf;
@@ -3256,7 +3258,7 @@ char *data;
   if (D_status_obufpos && size > D_status_obufpos)
     size = D_status_obufpos;
   ASSERT(len >= 0);
-  size = write(D_userfd, D_obuf, size);
+  if (!isDCS) size = write(D_userfd, D_obuf, size);
   if (size >= 0) 
     {
       len -= size;
@@ -3804,6 +3806,57 @@ char **cmdv;
   D_blocked = 4;
   ClearAll();
   close(slave);
+}
+
+int
+GetLineHeight(void)
+{
+  fd_set  rfd;
+  struct timeval tval;
+  char buf[100];
+  char *p;
+  ssize_t len;
+  ssize_t left;
+  int wp,hp,wc,hc;
+  int i;
+
+  if (D_userfd < 0)
+    {
+      return 0;
+    }
+
+#ifdef  TIOCGWINSZ
+  {
+    struct winsize ws;
+    if (ioctl(D_userfd, TIOCGWINSZ, &ws) == 0 && ws.ws_ypixel > 0 && ws.ws_row > 0)
+      return ws.ws_ypixel / ws.ws_row;
+  }
+#endif
+
+  write(D_userfd, "\x1b[14t\x1b[18t", 10);
+
+  p = buf;
+  left = sizeof(buf) - 1;
+  for (i = 0; i < 10; i++)
+    {
+      tval.tv_usec = 200000;      /* 0.2 sec * 10 */
+      tval.tv_sec = 0;
+      FD_ZERO(&rfd);
+      FD_SET(D_userfd,&rfd);
+      if (select(D_userfd+1,&rfd,NULL,NULL,&tval) <= 0 || ! FD_ISSET(D_userfd,&rfd))
+        continue;
+      if ((len = read(D_userfd,p,left)) <= 0)
+        continue;
+      p[len] = '\0';
+
+      if (sscanf(buf,"\x1b[4;%d;%dt\x1b[8;%d;%dt",&hp,&wp,&hc,&wc) == 4)
+        return hp / hc;
+
+      p += len;
+      left -= len;
+    }
+
+  return 0;
 }
 
 #endif /* BLANKER_PRG */

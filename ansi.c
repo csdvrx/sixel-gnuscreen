@@ -174,6 +174,8 @@ static void MBceLine __P((struct win *, int, int, int, int));
 # define CURR_BCE 0
 #endif
 
+int isDCS;
+
 void
 ResetAnsiState(p)
 struct win *p;
@@ -1520,6 +1522,21 @@ int c;
 # endif
 }
 
+int GetLineHeight(void);
+
+static int
+isStartingSixel(char *str)
+{
+  if (strncmp(str, "\x1bP", 2) == 0)
+    {
+       str += 2;
+       while ('0' <= *str && *str <= ';') { str++; }
+       if (*str == 'q') return 1;
+    }
+
+  return 0;
+}
+
 /*
  * Do string processing. Returns -1 if output should be suspended
  * until status is gone.
@@ -1628,7 +1645,83 @@ StringEnd()
 	}
       return -1;
     case DCS:
-      LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+      if (isDCS)
+        {
+          Flush(0);
+          if (*curr->w_string == '\\')	/* XXX It may be "\ ESC P \" */
+            {
+              if (isDCS == 2)	/* is sixel */
+                {
+                  isDCS = 0;
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("7\x1b[?69l\x1b"));
+                  if (D_cvlist->c_next)
+                    LAY_DISPLAYS(&curr->w_layer, AddRawStr("[r\x1b"));
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("8"));
+                }
+              else
+                {
+                  isDCS = 0;
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+                }
+              Flush(0);
+              break;
+            }
+        }
+      else if(isStartingSixel(curr->w_string))
+        {
+          /* is sixel */
+          static int line_height;
+          int x, y, w, h;
+          for (cv = D_cvlist; cv; cv = cv->c_next)
+            {
+              if (cv->c_layer->l_bottom == &curr->w_layer)
+                {
+                  char seq[12+11*2+1];
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
+                  sprintf(seq, "7\x1b[?69h\x1b[%d;%ds\x1b",
+                               cv->c_vplist->v_xoff + 1,
+                               cv->c_vplist->v_xoff + curr->w_layer.l_width);
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
+                  if (D_cvlist->c_next)
+                    {
+                      sprintf(seq, "[%d;%dr\x1b",
+                                   cv->c_vplist->v_yoff + 1,
+                                   cv->c_vplist->v_yoff + curr->w_layer.l_height);
+                      LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
+                    }
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("8"));
+                  Flush(0);
+                  break;
+                }
+            }
+          isDCS = 2;
+          if ((line_height > 0 || (line_height = GetLineHeight()) > 0) &&
+              sscanf(curr->w_string+9, "%d;%d;%d;%d", &x, &y, &w, &h) == 4)
+            {
+              int curfd;
+              char *str;
+              int row;
+              for (row = h / line_height + ((h % line_height > 0) ? 1 : 0); row > 0; row--)
+                LineFeed(0);
+              LayPause(&curr->w_layer,0);
+              Flush(0);
+              LayPause(&curr->w_layer,1);
+            }
+        }
+      else
+        {
+            isDCS = isprint(*curr->w_string) ? 0 : 1;
+        }
+
+      {
+        int tmp = isDCS;
+        isDCS = 0;
+        LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+        Flush(0);
+        isDCS = tmp;
+      }
       break;
     case AKA:
       if (curr->w_title == curr->w_akabuf && !*curr->w_string)
