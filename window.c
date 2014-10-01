@@ -1822,6 +1822,8 @@ struct event *ev;
   return 0;
 }
 
+extern int dcsState;
+
 static void
 win_readev_fn(ev, data)
 struct event *ev;
@@ -1934,9 +1936,17 @@ char *data;
     }
 #endif
 
-  LayPause(&p->w_layer, 1);
-  WriteString(p, bp, len);
-  LayPause(&p->w_layer, 0);
+  if (!dcsState)
+    {
+      LayPause(&p->w_layer, 1);
+      WriteString(p, bp, len);
+      while (dcsState) win_readev_fn(ev, data);
+      LayPause(&p->w_layer, 0);
+    }
+  else
+    {
+      WriteString(p, bp, len);
+    }
 
   return;
 }
