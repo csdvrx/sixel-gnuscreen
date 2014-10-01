@@ -1645,33 +1645,41 @@ StringEnd()
 	}
       return -1;
     case DCS:
+      if (*curr->w_string == '\0') break;
+      Flush(0); /* Ignore D_obuf. */
       if (dcsState)
         {
-          Flush(0);
-          if (*curr->w_string && curr->w_string[strlen(curr->w_string)-1] == '\x1b')
+          if (curr->w_string[strlen(curr->w_string)-1] == '\x1b')
             {
               dcsState |= 4;
+              goto output_dcs;
             }
           else if (dcsState & 4)
             {
               dcsState &= ~4;
-              if (*curr->w_string != '\\')
-                {
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
-                }
+              if (*curr->w_string != '\\') goto output_dcs;
               else if (dcsState == 2)   /* is sixel */
                 {
                   char seq[3+11*2+1];
                   dcsState = 0;
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("7\x1b[?69l\x1b["));
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b[?69l\x1b["));
                   if (D_top > 0 || D_bot < D_height - 1)
                     sprintf(seq, "%d;%dr\x1b", D_top+1, D_bot+1);
                   else
                     strcpy(seq, "r\x1b");
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("8"));
+                  for (cv = D_cvlist; cv; cv = cv->c_next)
+                    {
+                      if (cv->c_layer->l_bottom == &curr->w_layer)
+                        {
+                          sprintf(seq, "[%d;%dH",
+                                       cv->c_yoff + curr->w_layer.l_y + 1,
+                                       cv->c_xoff + curr->w_layer.l_x + 1);
+                          LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
+                          break;
+                        }
+                    }
                 }
               else
                 {
@@ -1691,15 +1699,16 @@ StringEnd()
             {
               if (cv->c_layer->l_bottom == &curr->w_layer)
                 {
-                  char seq[16+11*4+1];
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b"));
-                  sprintf(seq, "7\x1b[?69h\x1b[%d;%ds\x1b[%d;%dr\x1b",
-                               cv->c_vplist->v_xoff + 1,
-                               cv->c_vplist->v_xoff + curr->w_layer.l_width,
-                               cv->c_vplist->v_yoff + 1,
-                               cv->c_vplist->v_yoff + curr->w_layer.l_height);
+                  char seq[9+11*6+1];
+                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b[?69h\x1b["));
+                  sprintf(seq, "%d;%ds\x1b[%d;%dr\x1b[%d;%dH",
+                               cv->c_xoff + 1,
+                               cv->c_xoff + curr->w_layer.l_width,
+                               cv->c_yoff + 1,
+                               cv->c_yoff + curr->w_layer.l_height,
+                               cv->c_yoff + curr->w_layer.l_y + 1,
+                               cv->c_xoff + curr->w_layer.l_x + 1);
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("8"));
                   Flush(0);
                   break;
                 }
@@ -1723,14 +1732,20 @@ StringEnd()
             dcsState = isprint(*curr->w_string) ? 0 : 1;
         }
 
+      if (dcsState && curr->w_string[strlen(curr->w_string)-1] == '\x1b')
+        {
+          dcsState |= 4;
+        }
+
+output_dcs:
       {
         int tmp = dcsState;
         dcsState = 0;
         LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
         Flush(0);
         dcsState = tmp;
+        break;
       }
-      break;
     case AKA:
       if (curr->w_title == curr->w_akabuf && !*curr->w_string)
 	break;
