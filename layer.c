@@ -87,12 +87,17 @@ int off;
 # define RECODE_MLINE(ml) (ml)
 #endif
 
+#ifdef ENABLE_ORIGINAL_CODE
 #define FOR_EACH_UNPAUSED_CANVAS(l, fn) for (cv = (l)->l_cvlist; cv; cv = cv->c_lnext) \
   {	\
     if ((l)->l_pause.d && cv->c_slorient)	\
       continue;	\
     fn	\
   }
+#else
+#define FOR_EACH_UNPAUSED_CANVAS(l, fn) for (cv = (l)->l_cvlist; cv; cv = cv->c_lnext) \
+  { fn }
+#endif
 
 void
 LGotoPos(l, x, y)
@@ -230,6 +235,7 @@ int bce;
 	display = cv->c_display;
 	if (D_blocked)
 	  continue;
+
 #if 0
 	ScrollV(xs2, ys2, xe2, ye2, n, bce);
 #else
@@ -1236,6 +1242,7 @@ int pause;
   else
     win = NULL;
 
+#ifdef ENABLE_ORIGINAL_CODE
   for (cv = layer->l_cvlist; cv; cv = cv->c_lnext)
     {
       struct viewport *vp;
@@ -1289,6 +1296,7 @@ int pause;
 	  GotoPos(cx, cy);
 	}
     }
+#endif
 
   for (line = layer->l_pause.top; line <= layer->l_pause.bottom; line++)
     layer->l_pause.left[line] = layer->l_pause.right[line] = -1;
