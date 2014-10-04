@@ -87,17 +87,12 @@ int off;
 # define RECODE_MLINE(ml) (ml)
 #endif
 
-#ifdef ENABLE_ORIGINAL_CODE
 #define FOR_EACH_UNPAUSED_CANVAS(l, fn) for (cv = (l)->l_cvlist; cv; cv = cv->c_lnext) \
   {	\
     if ((l)->l_pause.d && cv->c_slorient)	\
       continue;	\
     fn	\
   }
-#else
-#define FOR_EACH_UNPAUSED_CANVAS(l, fn) for (cv = (l)->l_cvlist; cv; cv = cv->c_lnext) \
-  { fn }
-#endif
 
 void
 LGotoPos(l, x, y)
@@ -235,7 +230,6 @@ int bce;
 	display = cv->c_display;
 	if (D_blocked)
 	  continue;
-
 #if 0
 	ScrollV(xs2, ys2, xe2, ye2, n, bce);
 #else
@@ -739,11 +733,21 @@ int ins;
 	  display = cv->c_display;
 	  if (D_blocked)
 	    continue;
-	      y2 =  y + cv->c_yoff;
-	      yy2 = yy + cv->c_yoff;
-	      if (yy2 >= cv->c_ys && yy2 <= cv->c_ye && cv->c_xoff >= cv->c_xs && cv->c_xoff <= cv->c_xe) continue;
-	    if (y2 >= cv->c_ys && y2 <= cv->c_ye && cv->c_xoff + l->l_width - 1 >= cv->c_xs && cv->c_xoff + l->l_width - 1 <= cv->c_xe) continue;
-	  if (ins && cv->c_xoff + l->l_width - 1 > cv->c_ye)
+	  /* find the viewport of the wrapped character */
+	  for (vp = cv->c_vplist; vp; vp = vp->v_next)
+	    {
+	      y2 =  y + vp->v_yoff;
+	      yy2 = yy + vp->v_yoff;
+	      if (yy2 >= vp->v_ys && yy2 <= vp->v_ye && vp->v_xoff >= vp->v_xs && vp->v_xoff <= vp->v_xe)
+		break;
+	    }
+	  if (vp == 0)
+	    continue;	/* nothing to do, character not visible */
+	  /* find the viewport of the character at the end of the line*/
+	  for (evp = cv->c_vplist; evp; evp = evp->v_next)
+	    if (y2 >= evp->v_ys && y2 <= evp->v_ye && evp->v_xoff + l->l_width - 1 >= evp->v_xs && evp->v_xoff + l->l_width - 1 <= evp->v_xe)
+	      break;	/* gotcha! */
+	  if (evp == 0 || (ins && vp->v_xoff + l->l_width - 1 > vp->v_ye))
 	    {
 	      /* no wrapping possible */
 	      debug("LWrap: can't wrap!\n");
@@ -760,7 +764,7 @@ int ins;
 	    }
 	  else
 	    {
-	      WrapChar(RECODE_MCHAR(c), cv->c_xoff + l->l_width, y2, cv->c_xoff, -1, cv->c_xoff + l->l_width - 1, -1, ins);
+	      WrapChar(RECODE_MCHAR(c), vp->v_xoff + l->l_width, y2, vp->v_xoff, -1, vp->v_xoff + l->l_width - 1, -1, ins);
 	    }
 	}
       );
@@ -1232,7 +1236,6 @@ int pause;
   else
     win = NULL;
 
-#ifdef ENABLE_ORIGINAL_CODE
   for (cv = layer->l_cvlist; cv; cv = cv->c_lnext)
     {
       struct viewport *vp;
@@ -1286,7 +1289,6 @@ int pause;
 	  GotoPos(cx, cy);
 	}
     }
-#endif
 
   for (line = layer->l_pause.top; line <= layer->l_pause.bottom; line++)
     layer->l_pause.left[line] = layer->l_pause.right[line] = -1;
