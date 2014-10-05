@@ -958,9 +958,11 @@ int x2, y2;
   debug2(" -> (%d,%d)\n", x2, y2);
   if (!D_MS)		/* Safe to move ? */
     SetRendition(&mchar_null);
+#if 0
   if (y1 < 0			/* don't know the y position */
       || (y2 > D_bot && y1 <= D_bot)	/* have to cross border */
       || (y2 < D_top && y1 >= D_top))	/* of scrollregion ?    */
+#endif
     {
     DoCM:
       if (D_HO && !x2 && !y2)
@@ -972,6 +974,7 @@ int x2, y2;
       return;
     }
 
+#if 0
   /* some scrollregion implementations don't allow movements
    * away from the region. sigh.
    */
@@ -1121,6 +1124,7 @@ int x2, y2;
     }
   D_x = x2;
   D_y = y2;
+#endif
 }
 
 void
@@ -1403,11 +1407,13 @@ int xs, ys, xe, ye, n, bce;
       ClearArea(xs, ys, xs, xe, xe, ye, bce, 0);
       return;
     }
+#if 0
   if (xs > D_vpxmin || xe < D_vpxmax)
     {
       RefreshArea(xs, ys, xe, ye, 0);
       return;
     }
+#endif
 
   if (D_lp_missing)
     {
