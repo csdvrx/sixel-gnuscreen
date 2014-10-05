@@ -88,11 +88,7 @@ int off;
 #endif
 
 #define FOR_EACH_UNPAUSED_CANVAS(l, fn) for (cv = (l)->l_cvlist; cv; cv = cv->c_lnext) \
-  {	\
-    if ((l)->l_pause.d && cv->c_slorient)	\
-      continue;	\
-    fn	\
-  }
+  { fn }
 
 void
 LGotoPos(l, x, y)
@@ -196,6 +192,8 @@ struct mline *ol;
   );
 }
 
+extern int dcsState;
+
 void
 LScrollV(l, n, ys, ye, bce)
 struct layer *l;
@@ -206,10 +204,56 @@ int bce;
   struct canvas *cv;
   struct viewport *vp;
   int ys2, ye2, xs2, xe2;
+  int origDcsState;
   if (n == 0)
     return;
   if (l->l_pause.d)
     LayPauseUpdateRegion(l, 0, l->l_width - 1, ys, ye);
+  if (dcsState == 0)
+    {
+      LayPause(l, 0);
+      Flush(0);
+      FOR_EACH_UNPAUSED_CANVAS(l,
+        char seq[8+11*4+1];
+        int i;
+        LAY_DISPLAYS(l, AddRawStr("\x1b[m\x1b[?69h\x1b["));
+        sprintf(seq, "%d;%ds\x1b[%d;%dr\x1b[",
+               cv->c_xoff + 1,
+               cv->c_xoff + l->l_width,
+               cv->c_yoff + ys + 1,
+               cv->c_yoff + ye + 1);
+	LAY_DISPLAYS(l, AddRawStr(seq));
+	if (n > 0)
+  	  {
+            sprintf(seq, "%d;%dH",
+               cv->c_yoff + ye + 1,
+               cv->c_xoff + 1);
+            LAY_DISPLAYS(l, AddRawStr(seq));
+  	    for (i = 0; i < n; i++) LAY_DISPLAYS(l, AddRawStr("\n"));
+	  }
+	else
+	  {
+            sprintf(seq, "%d;%dH\x1b[%dL",
+               cv->c_yoff + ys + 1, cv->c_xoff + 1, -n);
+            LAY_DISPLAYS(l, AddRawStr(seq));
+	  }
+        LAY_DISPLAYS(l, AddRawStr("\x1b[?69l\x1b["));
+        if (D_top > 0 || D_bot < D_height - 1)
+          sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
+               cv->c_yoff + l->l_y + 1,
+	       l->l_x == 0 ? 1 : D_x + 1);	/* XXX */
+        else
+          sprintf(seq, "r\x1b[%d;%dH",
+               cv->c_yoff + l->l_y + 1,
+	       l->l_x == 0 ? 1 : D_x + 1);	/* XXX */
+        LAY_DISPLAYS(l, AddRawStr(seq));
+      );
+      Flush(0);
+      LayPause(l, 1);
+    }
+
+  origDcsState = dcsState;
+  dcsState = 1;
   FOR_EACH_UNPAUSED_CANVAS(l,
     for (vp = cv->c_vplist; vp; vp = vp->v_next)
       {
@@ -259,6 +303,10 @@ int bce;
 	  RefreshArea(xs2, ys2, xe2, ye2, 1);
       }
   );
+  LayPause(l, 0);
+  Flush(0);
+  LayPause(l, 1);
+  dcsState = origDcsState;
 }
 
 void
@@ -812,13 +860,13 @@ int ins;
 	    }
 	  if (vp)
 	    {
+	      LScrollV(l, 1, top, bot, bce);
 	      /* add vp back to cvlist */
 	      *vpp = vp;
-	      top2 = top + vp->v_yoff;
-	      bot2 = bot + vp->v_yoff;
-	      if (top2 < vp->v_ys)
-		top2 = vp->v_ys;
-	      WrapChar(RECODE_MCHAR(c), vp->v_xoff + l->l_width, bot2, vp->v_xoff, top2, vp->v_xoff + l->l_width - 1, bot2, ins);
+	      if (ins)
+	        LInsChar(l, RECODE_MCHAR(c), 0, bot, 0);
+	      else
+	        LPutChar(l, RECODE_MCHAR(c), 0, bot);
 	    }
 	}
       );
@@ -1270,8 +1318,10 @@ int pause;
 		    }
 #endif
 
+#if 0
 		  if (xs <= xe)
 		    RefreshLine(line + vp->v_yoff, xs, xe, 0);
+#endif
 		}
 	    }
 	}
