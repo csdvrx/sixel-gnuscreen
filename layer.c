@@ -192,7 +192,7 @@ struct mline *ol;
   );
 }
 
-extern int dcsState;
+extern int dcsState;	/* XXX */
 
 void
 LScrollV(l, n, ys, ye, bce)
@@ -266,6 +266,7 @@ int bce;
     }
 
   origDcsState = dcsState;
+  /* Don't output sequence until dcsState = origDcsState (see display.c) */
   dcsState = 1;
   FOR_EACH_UNPAUSED_CANVAS(l,
     for (vp = cv->c_vplist; vp; vp = vp->v_next)
