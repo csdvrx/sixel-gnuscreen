@@ -5172,7 +5172,8 @@ int n;
     }
 #endif
   SetForeWindow(p);
-  Activate(fore->w_norefresh);  
+  Activate(1);	/* No refresh */
+  LRefreshAll(&p->w_layer,0);
 }
 
 /*
@@ -5341,6 +5342,14 @@ struct win *wi;
 	    continue;
 	  /* switch to other window */
 	  SetCanvasWindow(cv, FindNiceWindow(D_other, 0));
+#if 0
+	  LRefreshAll(cv->c_layer, 0);
+#else
+	  RefreshArea(cv->c_xoff, cv->c_yoff,
+		cv->c_xoff + cv->c_layer->l_width - 1,
+		/* -1 is removed to redraw status line. */
+		cv->c_yoff + cv->c_layer->l_height, 0);
+#endif
 	  gotone = 1;
 	}
       if (gotone)
@@ -5352,7 +5361,6 @@ struct win *wi;
 	      D_readev.condpos = D_readev.condneg = 0;
 	    }
 #endif
-	  Activate(-1);
 	}
     }
 
@@ -6074,7 +6082,14 @@ char *fn, **av;
       if (!nwin.aka)
         nwin.aka = Filename(*av);
     }
-  MakeWindow(&nwin);
+  {
+    int orig;
+    orig = all_norefresh;
+    all_norefresh = 1;	/* Not refresh in Activate in MakeWindow */
+    MakeWindow(&nwin);
+    all_norefresh = orig;
+    LRefreshAll(&D_fore->w_layer,0);
+  }
 }
 
 #ifdef COPY_PASTE

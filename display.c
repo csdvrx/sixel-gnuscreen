@@ -1268,14 +1268,16 @@ int cur_only;
   SetRendition(&mchar_null);
   SetFlow(FLOW_NOW);
 
-  ClearAll();
 #ifdef RXVT_OSC
   RefreshXtermOSC();
 #endif
   if (cur_only > 0 && D_fore)
     RefreshArea(0, D_fore->w_y, D_width - 1, D_fore->w_y, 1);
   else
-    RefreshAll(1);
+    {
+      ClearAll();
+      RefreshAll(1);
+    }
   RefreshHStatus();
   CV_CALL(D_forecv, LayRestore();LaySetCursor());
 }
