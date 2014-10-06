@@ -233,19 +233,32 @@ int bce;
 	  }
 	else
 	  {
-            sprintf(seq, "%d;%dH\x1b[%dL",
-               cv->c_yoff + ys + 1, cv->c_xoff + 1, -n);
-            LAY_DISPLAYS(l, AddRawStr(seq));
+            n = -n;
+            if (ye - ys < n)
+              {
+                for (i = 0; i < n; i++)
+                  {
+                    sprintf(seq, "%d;%dH\x1b[%dX",
+                      cv->c_yoff + ys + i + 1, cv->c_xoff + 1, l->l_width);
+                    LAY_DISPLAYS(l, AddRawStr(seq));
+                  }
+              }
+            else
+              {
+                sprintf(seq, "%d;%dH\x1b[%dL",
+                  cv->c_yoff + ys + 1, cv->c_xoff + 1, n);
+                LAY_DISPLAYS(l, AddRawStr(seq));
+              }
 	  }
         LAY_DISPLAYS(l, AddRawStr("\x1b[?69l\x1b["));
         if (D_top > 0 || D_bot < D_height - 1)
           sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
                cv->c_yoff + l->l_y + 1,
-	       l->l_x == 0 ? 1 : D_x + 1);	/* XXX */
+               cv->c_xoff + l->l_x + 1);
         else
           sprintf(seq, "r\x1b[%d;%dH",
                cv->c_yoff + l->l_y + 1,
-	       l->l_x == 0 ? 1 : D_x + 1);	/* XXX */
+               cv->c_xoff + l->l_x + 1);
         LAY_DISPLAYS(l, AddRawStr(seq));
       );
       Flush(0);
