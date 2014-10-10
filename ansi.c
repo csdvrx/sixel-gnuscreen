@@ -469,6 +469,11 @@ register int len;
 		    StringChar(c);
 		    break;
 		  }
+	      if (curr->w_StringType == OSC && c == '\007')
+		{
+		  if (StringEnd() == 0 || len <= 1)
+		    break;
+		}
 	      c = '\\';
 	      /* FALLTHROUGH */
 	    case STRESC:
@@ -1469,6 +1474,9 @@ int c, intermediate;
 	      curr->w_mouse = i ? a1 : 0;
 	      LMouseMode(&curr->w_layer, curr->w_mouse);
 	      break;
+	    case 8800:
+	      LAY_DISPLAYS(&curr->w_layer,
+	        AddRawStr(i ? "\x1b[?8800h" : "\x1b[?8800l"));
 	    }
 	}
       break;
@@ -1484,24 +1492,39 @@ int c, intermediate;
     }
 }
 
+int procLongSeq ;
+enum {
+  P_PROC_SEQ = 1,
+  P_PROC_SIXEL = 2,
+  P_PROC_ESC = 4,
+  P_READ_SEQ = 8,
+} ;
 
 static void
 StringStart(type)
 enum string_t type;
 {
   curr->w_StringType = type;
+  curr->w_string = realloc(curr->w_string, MAXSTR);
   curr->w_stringp = curr->w_string;
   curr->w_state = ASTR;
+  procLongSeq |= P_READ_SEQ;
 }
 
 static void
 StringChar(c)
 int c;
 {
-  if (curr->w_stringp >= curr->w_string + MAXSTR - 1)
-    curr->w_state = LIT;
+  if ((curr->w_stringp - curr->w_string) % MAXSTR == MAXSTR - 4)
+    {
+      char *p;
+      p = realloc(curr->w_string, curr->w_stringp - curr->w_string + MAXSTR);
+      curr->w_stringp = p + (curr->w_stringp - curr->w_string);
+      curr->w_string = p;
+    }
+
 # ifdef UTF8
-  else if (c < 0x80)
+  if (c < 0x80)
     *(curr->w_stringp)++ = c;
   else if (c < 0x800)
     {
@@ -1515,7 +1538,6 @@ int c;
       *(curr->w_stringp)++ = (c & 0x3f) | 0x80;
     }
 # else
-  else
     *(curr->w_stringp)++ = c;
 # endif
 }
@@ -1523,19 +1545,19 @@ int c;
 int GetLineHeight(void);
 
 static int
-isStartingSixel(char *str)
+isStartingSixel(char *str, int penetEscSeq)
 {
-  if (strncmp(str, "\x1bP", 2) == 0)
+  if (penetEscSeq)
     {
-       str += 2;
-       while ('0' <= *str && *str <= ';') { str++; }
-       if (*str == 'q') return 1;
+      if (strncmp(str, "\x1bP", 2) != 0) return 0;
+      str += 2;
     }
+
+  while ('0' <= *str && *str <= ';') { str++; }
+    if (*str == 'q') return 1;
 
   return 0;
 }
-
-int dcsState ;
 
 /*
  * Do string processing. Returns -1 if output should be suspended
@@ -1547,6 +1569,9 @@ StringEnd()
   struct canvas *cv;
   char *p;
   int typ;
+  int penetEscSeq;
+
+  procLongSeq &= ~P_READ_SEQ;
 
   curr->w_state = LIT;
   *curr->w_stringp = '\0';
@@ -1557,6 +1582,7 @@ StringEnd()
 	break;
       typ = atoi(curr->w_string);
       p++;
+#ifdef DISABLE_OSC_THROUGH
 #ifdef MULTIUSER
       if (typ == 83)	/* 83 = 'S' */
 	{
@@ -1620,6 +1646,16 @@ StringEnd()
       if (curr->w_stringp > curr->w_string)
 	bcopy(p, curr->w_string, curr->w_stringp - curr->w_string);
       *curr->w_stringp = '\0';
+#else /* DISABLE_OSC_THROUGH */
+        if (typ > 2)
+	{
+	  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b]"));
+	  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+	  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x07"));
+	  Flush(0);
+	  break;
+	}
+#endif
       /* FALLTHROUGH */
     case APC:
       if (curr->w_hstatus)
@@ -1647,22 +1683,26 @@ StringEnd()
     case DCS:
       if (*curr->w_string == '\0') break;
       Flush(0); /* Ignore D_obuf. */
-      if (dcsState)
+      penetEscSeq = 1;
+      if (procLongSeq)
         {
-          if (curr->w_string[strlen(curr->w_string)-1] == '\x1b')
+          if (*(curr->w_stringp - 1) == '\x1b')
             {
-              dcsState |= 4;
-              goto output_dcs;
+              procLongSeq |= P_PROC_ESC;
             }
-          else if (dcsState & 4)
+          else if (procLongSeq & P_PROC_ESC)
             {
-              dcsState &= ~4;
-              if (*curr->w_string != '\\') goto output_dcs;
-              else if (dcsState == 2)   /* is sixel */
+              procLongSeq &= ~P_PROC_ESC;
+              if (*curr->w_string != '\\') {;}
+              else
+            end_dcs:
+              if (procLongSeq == P_PROC_SIXEL)   /* is sixel */
                 {
                   char seq[3+11*2+1];
-                  dcsState = 0;
+                  procLongSeq = 0;
+                  if (!penetEscSeq) LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1bP"));
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+                  if (!penetEscSeq) LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b\\"));
                   LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b[?69l\x1b["));
                   if (D_top > 0 || D_bot < D_height - 1)
                     sprintf(seq, "%d;%dr\x1b", D_top+1, D_bot+1);
@@ -1680,70 +1720,85 @@ StringEnd()
                           break;
                         }
                     }
+                  Flush(0);
+                  break;
                 }
               else
                 {
-                  dcsState = 0;
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+                  procLongSeq = 0;
                 }
-              Flush(0);
-              break;
             }
         }
-      else if(isStartingSixel(curr->w_string))
+      else
         {
-          /* is sixel */
-          static int line_height;
-          int x, y, w, h;
-          for (cv = D_cvlist; cv; cv = cv->c_next)
+          if (curr->w_string[0] != '\x1b')
             {
-              if (cv->c_layer->l_bottom == &curr->w_layer)
+              penetEscSeq = 0;
+            }
+
+          if(isStartingSixel(curr->w_string, penetEscSeq))
+            {
+              /* is sixel */
+              static int line_height;
+              int x, y, w, h;
+              for (cv = D_cvlist; cv; cv = cv->c_next)
                 {
-                  char seq[9+11*6+1];
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b[?69h\x1b["));
-                  sprintf(seq, "%d;%ds\x1b[%d;%dr\x1b[%d;%dH",
+                  if (cv->c_layer->l_bottom == &curr->w_layer)
+                    {
+                      char seq[9+11*6+1];
+                      LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b[m\x1b[?69h\x1b["));
+                      sprintf(seq, "%d;%ds\x1b[%d;%dr\x1b[%d;%dH",
                                cv->c_xoff + 1,
                                cv->c_xoff + curr->w_layer.l_width,
                                cv->c_yoff + 1,
                                cv->c_yoff + curr->w_layer.l_height,
                                cv->c_yoff + curr->w_layer.l_y + 1,
                                cv->c_xoff + curr->w_layer.l_x + 1);
-                  LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
+                      LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
+                      Flush(0);
+                      break;
+                    }
+                }
+
+              procLongSeq = P_PROC_SIXEL;
+              if ((line_height > 0 || (line_height = GetLineHeight()) > 0) &&
+                  sscanf(curr->w_string + (penetEscSeq ? 9 : 7),
+                          "%d;%d;%d;%d", &x, &y, &w, &h) == 4)
+                {
+                  int curfd;
+                  char *str;
+                  int row;
+                  for (row = h / line_height + ((h % line_height > 0) ? 1 : 0); row > 0; row--)
+                    LineFeed(0);
+                  LayPause(&curr->w_layer,0);
                   Flush(0);
-                  break;
+                  LayPause(&curr->w_layer,1);
                 }
             }
-          dcsState = 2;
-          if ((line_height > 0 || (line_height = GetLineHeight()) > 0) &&
-              sscanf(curr->w_string+9, "%d;%d;%d;%d", &x, &y, &w, &h) == 4)
+          else
             {
-              int curfd;
-              char *str;
-              int row;
-              for (row = h / line_height + ((h % line_height > 0) ? 1 : 0); row > 0; row--)
-                LineFeed(0);
-              LayPause(&curr->w_layer,0);
-              Flush(0);
-              LayPause(&curr->w_layer,1);
+              procLongSeq = (!penetEscSeq ||    /* No penetaration == Always DCS */
+                          (curr->w_string[0] == '\x1b' && curr->w_string[1] == 'P'));
+            }
+
+          if (procLongSeq)
+            {
+#ifndef DISABLE_DCS_THROUGH
+              if (!penetEscSeq) goto end_dcs;
+#endif
+              if (*(curr->w_stringp - 1) == '\x1b')
+                  procLongSeq |= P_PROC_ESC;
             }
         }
-      else
-        {
-            dcsState = isprint(*curr->w_string) ? 0 : 1;
-        }
 
-      if (dcsState && curr->w_string[strlen(curr->w_string)-1] == '\x1b')
-        {
-          dcsState |= 4;
-        }
-
-output_dcs:
       {
-        int tmp = dcsState;
-        dcsState = 0;
+        int tmp = procLongSeq;
+        procLongSeq = 0;
+        if (!penetEscSeq) LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1bP"));
         LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+        if (!penetEscSeq) LAY_DISPLAYS(&curr->w_layer, AddRawStr("\x1b\\"));
         Flush(0);
-        dcsState = tmp;
+        procLongSeq = tmp;
         break;
       }
     case AKA:

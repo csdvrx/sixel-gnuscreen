@@ -192,7 +192,7 @@ struct mline *ol;
   );
 }
 
-extern int dcsState;	/* XXX */
+extern int procLongSeq;	/* XXX */
 
 void
 LScrollV(l, n, ys, ye, bce)
@@ -204,12 +204,12 @@ int bce;
   struct canvas *cv;
   struct viewport *vp;
   int ys2, ye2, xs2, xe2;
-  int origDcsState;
+  int origProcLongSeq;
   if (n == 0)
     return;
   if (l->l_pause.d)
     LayPauseUpdateRegion(l, 0, l->l_width - 1, ys, ye);
-  if (dcsState == 0)
+  if (procLongSeq == 0)
     {
       LayPause(l, 0);
       Flush(0);
@@ -265,9 +265,9 @@ int bce;
       LayPause(l, 1);
     }
 
-  origDcsState = dcsState;
-  /* Don't output sequence until dcsState = origDcsState (see display.c) */
-  dcsState = 1;
+  origProcLongSeq = procLongSeq;
+  /* Don't output sequence until procLongSeq = origProcLongSeq (see display.c) */
+  procLongSeq = 1;
   FOR_EACH_UNPAUSED_CANVAS(l,
     for (vp = cv->c_vplist; vp; vp = vp->v_next)
       {
@@ -320,7 +320,7 @@ int bce;
   LayPause(l, 0);
   Flush(0);
   LayPause(l, 1);
-  dcsState = origDcsState;
+  procLongSeq = origProcLongSeq;
 }
 
 void

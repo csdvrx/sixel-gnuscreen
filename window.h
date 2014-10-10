@@ -219,7 +219,7 @@ struct win
 #ifdef DW_CHARS
   int    w_mbcs;		/* saved char for multibytes charset */
 #endif
-  char	 w_string[MAXSTR];
+  char	*w_string;
   char	*w_stringp;
   char	*w_tabs;		/* line with tabs */
   int	 w_bell;		/* bell status of this window */

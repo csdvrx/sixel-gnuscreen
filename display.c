@@ -2984,7 +2984,7 @@ int n;
     AddChar(' ');
 }
 
-extern int dcsState ;
+extern int procLongSeq ;
 
 void
 Flush(progress)
@@ -3000,7 +3000,7 @@ int progress;
   if (l == 0)
     return;
   ASSERT(l + D_obuffree == D_obuflen);
-  if (D_userfd < 0 || dcsState)
+  if (D_userfd < 0 || procLongSeq)
     {
       D_obuffree += l;
       D_obufp = D_obuf;
@@ -3266,7 +3266,7 @@ char *data;
   if (D_status_obufpos && size > D_status_obufpos)
     size = D_status_obufpos;
   ASSERT(len >= 0);
-  if (!dcsState) size = write(D_userfd, D_obuf, size);
+  if (!procLongSeq) size = write(D_userfd, D_obuf, size);
   if (size >= 0) 
     {
       len -= size;

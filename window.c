@@ -1822,7 +1822,7 @@ struct event *ev;
   return 0;
 }
 
-extern int dcsState;
+extern int procLongSeq;
 
 static void
 win_readev_fn(ev, data)
@@ -1936,11 +1936,11 @@ char *data;
     }
 #endif
 
-  if (!dcsState)
+  if (!procLongSeq)
     {
       LayPause(&p->w_layer, 1);
       WriteString(p, bp, len);
-      while (dcsState) win_readev_fn(ev, data);
+      while (procLongSeq) win_readev_fn(ev, data);
       LayPause(&p->w_layer, 0);
     }
   else
