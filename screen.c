@@ -779,6 +779,7 @@ char **av;
 #ifdef USE_LOCALE
   setlocale(LC_ALL, "");
 #endif
+  putenv("SCREEN_VARIANT=sixel");
 #ifdef ENCODINGS
   if (nwin_options.encoding == -1)
     {
