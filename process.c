@@ -7067,6 +7067,26 @@ struct canvas *cv;
       WindowChanged(0, 'F');
     }
 
+  if (fore)
+    {
+      LAY_DISPLAYS(&fore->w_layer,
+        AddRawStr((fore->hidepointer && !fore->w_layer.l_cvlist->c_lnext) ?
+	  "\x1b[>2p" : "\x1b[>p"));
+      LAY_DISPLAYS(&fore->w_layer,
+        AddRawStr((*fore->decelr && !fore->w_layer.l_cvlist->c_lnext) ?
+	  fore->decelr : "\x1b[0\'z"));
+      LAY_DISPLAYS(&fore->w_layer, AddRawStr("\x1b[0\'{"));
+      if (*fore->decsle && !fore->w_layer.l_cvlist->c_lnext)
+        LAY_DISPLAYS(&fore->w_layer, AddRawStr(fore->decsle));
+      {
+        FILE *fp = fopen("log.txt","a");
+	fprintf(fp, "%d %s %s\n", fore->hidepointer,
+		fore->decelr, fore->decsle);
+	fclose(fp);
+      }
+      Flush(0);
+    }
+
   display = odisplay;
 }
 

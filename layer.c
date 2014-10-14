@@ -88,7 +88,11 @@ int off;
 #endif
 
 #define FOR_EACH_UNPAUSED_CANVAS(l, fn) for (cv = (l)->l_cvlist; cv; cv = cv->c_lnext) \
-  { fn }
+  {      \
+    if ((l)->l_cvlist->c_lnext && (l)->l_pause.d && cv->c_slorient) \
+      continue;  \
+    fn   \
+  }
 
 void
 LGotoPos(l, x, y)
@@ -209,7 +213,7 @@ int bce;
     return;
   if (l->l_pause.d)
     LayPauseUpdateRegion(l, 0, l->l_width - 1, ys, ye);
-  if (procLongSeq == 0)
+  if (procLongSeq == 0 && l->l_cvlist && !l->l_cvlist->c_lnext)
     {
       LayPause(l, 0);
       Flush(0);
@@ -218,28 +222,27 @@ int bce;
         int i;
         LAY_DISPLAYS(l, AddRawStr("\x1b[m\x1b[?69h\x1b["));
         sprintf(seq, "%d;%ds\x1b[%d;%dr\x1b[",
-               cv->c_xoff + 1,
-               cv->c_xoff + l->l_width,
-               cv->c_yoff + ys + 1,
-               cv->c_yoff + ye + 1);
-	LAY_DISPLAYS(l, AddRawStr(seq));
-	if (n > 0)
-  	  {
+               cv->c_xs + 1, cv->c_xe + 1, cv->c_ys + 1, cv->c_ye + 1);
+        LAY_DISPLAYS(l, AddRawStr(seq));
+        if (n > 0)
+          {
             sprintf(seq, "%d;%dH",
                cv->c_yoff + ye + 1,
                cv->c_xoff + 1);
             LAY_DISPLAYS(l, AddRawStr(seq));
-  	    for (i = 0; i < n; i++) LAY_DISPLAYS(l, AddRawStr("\n"));
-	  }
-	else
-	  {
+            for (i = 0; i < n; i++) LAY_DISPLAYS(l, AddRawStr("\n"));
+          }
+        else
+          {
             n = -n;
             if (ye - ys < n)
               {
                 for (i = 0; i < n; i++)
                   {
+                    if (i > 0) LAY_DISPLAYS(l, AddRawStr("\x1b["));
                     sprintf(seq, "%d;%dH\x1b[%dX",
-                      cv->c_yoff + ys + i + 1, cv->c_xoff + 1, l->l_width);
+                      cv->c_yoff + ys + i + 1, cv->c_xoff + 1,
+                      cv->c_xe - cv->c_xs + 1);
                     LAY_DISPLAYS(l, AddRawStr(seq));
                   }
               }
@@ -249,16 +252,26 @@ int bce;
                   cv->c_yoff + ys + 1, cv->c_xoff + 1, n);
                 LAY_DISPLAYS(l, AddRawStr(seq));
               }
-	  }
+          }
         LAY_DISPLAYS(l, AddRawStr("\x1b[?69l\x1b["));
         if (D_top > 0 || D_bot < D_height - 1)
           sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
+          #if  0
                cv->c_yoff + l->l_y + 1,
-               cv->c_xoff + l->l_x + 1);
+               cv->c_xoff + l->l_x + 1
+          #else
+               cv->c_ye + 1, cv->c_xs + 1
+          #endif
+               );
         else
           sprintf(seq, "r\x1b[%d;%dH",
+          #if  0
                cv->c_yoff + l->l_y + 1,
-               cv->c_xoff + l->l_x + 1);
+               cv->c_xoff + l->l_x + 1
+          #else
+               cv->c_ye + 1, cv->c_xs + 1
+          #endif
+               );
         LAY_DISPLAYS(l, AddRawStr(seq));
       );
       Flush(0);
@@ -266,8 +279,10 @@ int bce;
     }
 
   origProcLongSeq = procLongSeq;
-  /* Don't output sequence until procLongSeq = origProcLongSeq (see display.c) */
-  procLongSeq = 1;
+  if (l->l_cvlist && !l->l_cvlist->c_lnext)
+    /* Don't output sequence until procLongSeq = origProcLongSeq (see display.c) */
+    procLongSeq = 1;
+
   FOR_EACH_UNPAUSED_CANVAS(l,
     for (vp = cv->c_vplist; vp; vp = vp->v_next)
       {
@@ -318,7 +333,7 @@ int bce;
       }
   );
   LayPause(l, 0);
-  Flush(0);
+  if (l->l_cvlist) Flush(0);
   LayPause(l, 1);
   procLongSeq = origProcLongSeq;
 }
@@ -1302,7 +1317,7 @@ int pause;
     {
       struct viewport *vp;
 
-      if (!cv->c_slorient)
+      if (!(layer)->l_cvlist->c_lnext || !cv->c_slorient)
 	continue;		/* Wasn't split, so already updated. */
 
       display = cv->c_display;
@@ -1332,10 +1347,8 @@ int pause;
 		    }
 #endif
 
-#if 0
 		  if (xs <= xe)
 		    RefreshLine(line + vp->v_yoff, xs, xe, 0);
-#endif
 		}
 	    }
 	}

@@ -299,6 +299,10 @@ struct win
 #else
   int w_exitstatus;
 #endif
+
+  int hidepointer;
+  char decelr[2+1*2+1*1+2+1];
+  char decsle[2+1*3+1*2+2+1];
 };
 
 

@@ -65,6 +65,7 @@ static void RAW_PUTCHAR __P((int));
 static void SetBackColor __P((int));
 #endif
 static void RemoveStatusMinWait __P((void));
+int GetLineHeight(int);
 
 
 extern struct layer *flayer;
@@ -246,6 +247,7 @@ struct mode *Mode;
   D_flow = 1;
   D_nonblock = defnonblock;
   D_userfd = fd;
+  GetLineHeight(1);
   D_readev.fd = D_writeev.fd = fd;
   D_readev.type  = EV_READ;
   D_writeev.type = EV_WRITE;
@@ -3817,8 +3819,9 @@ char **cmdv;
 }
 
 int
-GetLineHeight(void)
+GetLineHeight(int force)
 {
+  static int line_height;
   fd_set  rfd;
   struct timeval tval;
   char buf[100];
@@ -3828,6 +3831,7 @@ GetLineHeight(void)
   int wp,hp,wc,hc;
   int i;
 
+  if (!force && line_height > 0) return line_height;
   if (D_userfd < 0)
     {
       return 0;
@@ -3837,7 +3841,7 @@ GetLineHeight(void)
   {
     struct winsize ws;
     if (ioctl(D_userfd, TIOCGWINSZ, &ws) == 0 && ws.ws_ypixel > 0 && ws.ws_row > 0)
-      return ws.ws_ypixel / ws.ws_row;
+      return (line_height = ws.ws_ypixel / ws.ws_row);
   }
 #endif
 
@@ -3858,7 +3862,7 @@ GetLineHeight(void)
       p[len] = '\0';
 
       if (sscanf(buf,"\x1b[4;%d;%dt\x1b[8;%d;%dt",&hp,&wp,&hc,&wc) == 4)
-        return hp / hc;
+        return (line_height = hp / hc);
 
       p += len;
       left -= len;

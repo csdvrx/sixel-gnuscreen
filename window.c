@@ -1940,7 +1940,8 @@ char *data;
     {
       LayPause(&p->w_layer, 1);
       WriteString(p, bp, len);
-      while (procLongSeq) win_readev_fn(ev, data);
+      /* Ignore P_READ_SEQ (0x8) */
+      while (procLongSeq & 0x7) win_readev_fn(ev, data);
       LayPause(&p->w_layer, 0);
     }
   else
