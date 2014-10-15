@@ -218,58 +218,65 @@ int bce;
       LayPause(l, 0);
       Flush(0);
       FOR_EACH_UNPAUSED_CANVAS(l,
+        int ys3;
+        int ye3;
         char seq[8+11*4+1];
         int i;
+        if (cv->c_ys > cv->c_yoff + ys)
+          ys3 = cv->c_ys;
+        else
+          ys3 = cv->c_yoff + ys;
+        if (cv->c_ye < cv->c_yoff + ye)
+          ye3 = cv->c_ye;
+        else
+          ye3 = cv->c_yoff + ye;
+
         LAY_DISPLAYS(l, AddRawStr("\x1b[m\x1b[?69h\x1b["));
         sprintf(seq, "%d;%ds\x1b[%d;%dr\x1b[",
-               cv->c_xs + 1, cv->c_xe + 1, cv->c_ys + 1, cv->c_ye + 1);
+               cv->c_xs + 1, cv->c_xe + 1, ys3 + 1, ye3 + 1);
         LAY_DISPLAYS(l, AddRawStr(seq));
         if (n > 0)
           {
-            sprintf(seq, "%d;%dH",
-               cv->c_yoff + ye + 1,
-               cv->c_xoff + 1);
+            sprintf(seq, "%d;%dH", ye3 + 1, cv->c_xs + 1);
             LAY_DISPLAYS(l, AddRawStr(seq));
             for (i = 0; i < n; i++) LAY_DISPLAYS(l, AddRawStr("\n"));
           }
         else
           {
             n = -n;
-            if (ye - ys < n)
+            if (ye3 - ys3 < n)
               {
                 for (i = 0; i < n; i++)
                   {
                     if (i > 0) LAY_DISPLAYS(l, AddRawStr("\x1b["));
                     sprintf(seq, "%d;%dH\x1b[%dX",
-                      cv->c_yoff + ys + i + 1, cv->c_xoff + 1,
-                      cv->c_xe - cv->c_xs + 1);
+                      ys3 + i + 1, cv->c_xs + 1, cv->c_xe - cv->c_xs + 1);
                     LAY_DISPLAYS(l, AddRawStr(seq));
                   }
               }
             else
               {
-                sprintf(seq, "%d;%dH\x1b[%dL",
-                  cv->c_yoff + ys + 1, cv->c_xoff + 1, n);
+                sprintf(seq, "%d;%dH\x1b[%dL", ys3 + 1, cv->c_xs + 1, n);
                 LAY_DISPLAYS(l, AddRawStr(seq));
               }
           }
         LAY_DISPLAYS(l, AddRawStr("\x1b[?69l\x1b["));
         if (D_top > 0 || D_bot < D_height - 1)
           sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
-          #if  0
+          #if  1
                cv->c_yoff + l->l_y + 1,
                cv->c_xoff + l->l_x + 1
           #else
-               cv->c_ye + 1, cv->c_xs + 1
+               ye3 + 1, cv->c_xs + 1
           #endif
                );
         else
           sprintf(seq, "r\x1b[%d;%dH",
-          #if  0
+          #if  1
                cv->c_yoff + l->l_y + 1,
                cv->c_xoff + l->l_x + 1
           #else
-               cv->c_ye + 1, cv->c_xs + 1
+               ye3 + 1, cv->c_xs + 1
           #endif
                );
         LAY_DISPLAYS(l, AddRawStr(seq));
