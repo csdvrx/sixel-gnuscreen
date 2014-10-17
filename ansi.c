@@ -1512,6 +1512,22 @@ int c, intermediate;
 	      Flush(0);
 	    }
 	  break;
+	case 'w':
+	  {
+	    char seq[2+11*4+5+1];
+	    strcpy(seq, "\x1b[");
+	    if (curr->w_NumArgs == 4)
+	      sprintf(seq+2, "%d;%d;%d;%d\'w", curr->w_args[0], curr->w_args[1],
+			curr->w_args[2], curr->w_args[3]);
+	    else
+	      strcpy(seq+2, "\'w");
+            if (curr->w_layer.l_cvlist && ! curr->w_layer.l_cvlist->c_lnext)
+	      {
+	        LAY_DISPLAYS(&curr->w_layer, AddRawStr(seq));
+	        Flush(0);
+	      }
+	    break;
+	  }
 	case 'z':
 	  {
 	    char *seq = curr->decelr;

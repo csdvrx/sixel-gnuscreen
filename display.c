@@ -480,6 +480,7 @@ FinitTerm()
 #endif
   if (D_tcinited)
     {
+      AddRawStr("\x1b[0\'z");
       ResizeDisplay(D_defwidth, D_defheight);
       InsertMode(0);
       ChangeScrollRegion(0, D_height - 1);

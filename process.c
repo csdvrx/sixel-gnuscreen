@@ -7075,15 +7075,11 @@ struct canvas *cv;
       LAY_DISPLAYS(&fore->w_layer,
         AddRawStr((*fore->decelr && !fore->w_layer.l_cvlist->c_lnext) ?
 	  fore->decelr : "\x1b[0\'z"));
+      if (strstr(fore->decelr, "\x1b[1") && !fore->w_layer.l_cvlist->c_lnext)
+        LAY_DISPLAYS(&fore->w_layer, AddRawStr("\x1b[\'w"));	/* XXX */
       LAY_DISPLAYS(&fore->w_layer, AddRawStr("\x1b[0\'{"));
       if (*fore->decsle && !fore->w_layer.l_cvlist->c_lnext)
         LAY_DISPLAYS(&fore->w_layer, AddRawStr(fore->decsle));
-      {
-        FILE *fp = fopen("log.txt","a");
-	fprintf(fp, "%d %s %s\n", fore->hidepointer,
-		fore->decelr, fore->decsle);
-	fclose(fp);
-      }
       Flush(0);
     }
 
