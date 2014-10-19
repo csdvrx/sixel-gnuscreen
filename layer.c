@@ -197,6 +197,7 @@ struct mline *ol;
 }
 
 extern int procLongSeq;	/* XXX */
+extern struct LayFuncs MarkLf;
 
 void
 LScrollV(l, n, ys, ye, bce)
@@ -261,24 +262,17 @@ int bce;
               }
           }
         LAY_DISPLAYS(l, AddRawStr("\x1b[?69l\x1b["));
-        if (D_top > 0 || D_bot < D_height - 1)
+        if (l->l_layfn == &MarkLf)
           sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
-          #if  1
+               ye3 + 1, cv->c_xs + 1);
+        else if (D_top > 0 || D_bot < D_height - 1)
+          sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
                cv->c_yoff + l->l_y + 1,
-               cv->c_xoff + l->l_x + 1
-          #else
-               ye3 + 1, cv->c_xs + 1
-          #endif
-               );
+               cv->c_xoff + l->l_x + 1);
         else
           sprintf(seq, "r\x1b[%d;%dH",
-          #if  1
                cv->c_yoff + l->l_y + 1,
-               cv->c_xoff + l->l_x + 1
-          #else
-               ye3 + 1, cv->c_xs + 1
-          #endif
-               );
+               cv->c_xoff + l->l_x + 1);
         LAY_DISPLAYS(l, AddRawStr(seq));
       );
       Flush(0);
