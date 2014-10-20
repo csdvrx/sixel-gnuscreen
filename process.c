@@ -7036,6 +7036,9 @@ struct canvas *cv;
   if (d->d_forecv == cv)
     return;
 
+  if (fore && fore->want_focus_event)
+    write(fore->w_ptyfd, "\x1b[O", 3);
+
   display = d;
   D_forecv = cv;
   if ((focusminwidth && (focusminwidth < 0 || D_forecv->c_xe - D_forecv->c_xs + 1 < focusminwidth)) ||
@@ -7075,12 +7078,14 @@ struct canvas *cv;
       LAY_DISPLAYS(&fore->w_layer,
         AddRawStr((*fore->decelr && !fore->w_layer.l_cvlist->c_lnext) ?
 	  fore->decelr : "\x1b[0\'z"));
-      if (strstr(fore->decelr, "\x1b[1") && !fore->w_layer.l_cvlist->c_lnext)
+      if (strncmp(fore->decelr, "\x1b[1", 3) == 0 && !fore->w_layer.l_cvlist->c_lnext)
         LAY_DISPLAYS(&fore->w_layer, AddRawStr("\x1b[\'w"));	/* XXX */
       LAY_DISPLAYS(&fore->w_layer, AddRawStr("\x1b[0\'{"));
       if (*fore->decsle && !fore->w_layer.l_cvlist->c_lnext)
         LAY_DISPLAYS(&fore->w_layer, AddRawStr(fore->decsle));
       Flush(0);
+      if (fore->want_focus_event)
+        write(fore->w_ptyfd, "\x1b[I", 3);
     }
 
   display = odisplay;

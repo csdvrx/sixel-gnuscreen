@@ -1,0 +1,61 @@
+How to setup graphical and multiplexing terminal.
+
+* Install terminal emulators supporting sixel and DECSLRM/DECLRMM.
+  mlterm 3.4.0 or later (http://mlterm.sf.net/)
+  RLogin 2.13.6 or later (http://nanno.dip.jp/softlib/man/rlogin/)
+  xterm #294 or later (http://invisible-island.net/xterm/)
+  tanasinn 0.3.2.0 or later (https://github.com/saitoha/tanasinn/)
+
+* Install GNU screen with sixel supporting patch.
+  Download http://bitbucket.org/arakiken/screen/get/sixel.tar.gz and
+ build it as follows.
+ $ ./configure ... ; make ; make install
+
+  Then start 'screen' command as usual.
+
+* Install and play applications supporting sixel.
+  o libsixel
+    https://github.com/saitoha/libsixel
+
+    A lightweight, fast implementation of DEC SIXEL graphics codec.
+    Following applications needs this awesome library.
+    libsixel contains useful tools such as img2sixel.
+
+    Usage) $ img2sixel foo.jpg
+
+  o w3m-sixel
+    WWW wo Miru Tool
+    - (arakiken's)
+      https://bitbucket.org/arakiken/w3m/get/sixel.tar.gz
+      w3m using sixel to show images instead of w3mimgdisplay.
+      Usage) $ w3m -sixel http://www.google.com
+
+    - (uobikiemukot's)
+      https://github.com/uobikiemukot/sdump/tree/master/yaimg-sixel
+      w3mimgdisplay compatible program which uses sixel.
+
+  o xserver-sixel
+    https://github.com/saitoha/xserver-sixel/tree/sixel
+    https://github.com/saitoha/xserver-sixel/tree/sixel-for-XQuartz
+
+    Xserver working on terminal emulators supporting sixel.
+    Usage) $ Xsixel :1 -exec twm
+
+  o FFmpeg-sixel
+    https://github.com/saitoha/ffmpeg-sixel/tree/sixel
+
+    FFmpeg working on terminal emulators supporting sixel.
+    Usage) $ ffmpeg -i http://youtube.com/... -pix_fmt rgb24 -loglevel quiet -f sixel -
+
+  o SDL-1.2-sixel
+    https://github.com/saitoha/SDL1.2-SIXEL/tree/sixel
+
+    Applications depending on SDL such as QEMU works on terminal emulators
+   supporting sixel.
+
+* Note
+  GNU screen with sixel supporting patch doesn't recognize sixel
+ sequence itself but enables frontend terminal emulators to draw sixel
+ images and scrolls them correctly.
+  So, for example, if you redraw screen by 'ctrl-a l', sixel images
+ on it goes out.

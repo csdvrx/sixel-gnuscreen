@@ -1474,6 +1474,9 @@ int c, intermediate;
 	      curr->w_mouse = i ? a1 : 0;
 	      LMouseMode(&curr->w_layer, curr->w_mouse);
 	      break;
+	    case 1004:
+	      curr->want_focus_event = i;
+	      break;
 	    case 8800:
 	      if (curr->w_layer.l_cvlist)
 		LAY_DISPLAYS(&curr->w_layer,
