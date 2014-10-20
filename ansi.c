@@ -1640,8 +1640,6 @@ int c;
 # endif
 }
 
-int GetLineHeight(int);
-
 static int
 isStartingSixel(char *str, int penetEscSeq)
 {
@@ -1834,7 +1832,7 @@ StringEnd()
           if(isStartingSixel(curr->w_string, penetEscSeq))
             {
               /* is sixel */
-              static int line_height;
+              extern int line_height;
               int x, y, w, h;
               if ((cv = curr->w_layer.l_cvlist) && !cv->c_lnext)
                 {
@@ -1850,7 +1848,7 @@ StringEnd()
                   procLongSeq = P_PROC_SIXEL;
                 }
 
-              if ((line_height > 0 || (line_height = GetLineHeight(0)) > 0) &&
+              if (line_height > 0 &&
                   sscanf(curr->w_string + (penetEscSeq ? 9 : 7),
                           "%d;%d;%d;%d", &x, &y, &w, &h) == 4)
                 {

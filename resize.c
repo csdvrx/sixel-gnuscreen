@@ -1003,8 +1003,12 @@ int wi, he, hi;
   if (wi && (p->w_width != wi || p->w_height != he)
       && p->w_width != 0 && p->w_height != 0 && p->w_ptyfd >= 0 && p->w_pid)
     {
+      extern int col_width;
+      extern int line_height;
       glwz.ws_col = wi;
       glwz.ws_row = he;
+      glwz.ws_xpixel = wi * col_width;
+      glwz.ws_ypixel = he * line_height;
       debug("Setting pty winsize.\n");
       if (ioctl(p->w_ptyfd, TIOCSWINSZ, (char *)&glwz))
 	debug2("SetPtySize: errno %d (fd:%d)\n", errno, p->w_ptyfd);

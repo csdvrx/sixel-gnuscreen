@@ -65,7 +65,7 @@ static void RAW_PUTCHAR __P((int));
 static void SetBackColor __P((int));
 #endif
 static void RemoveStatusMinWait __P((void));
-int GetLineHeight(int);
+static void GetCellSize(void);
 
 
 extern struct layer *flayer;
@@ -247,7 +247,7 @@ struct mode *Mode;
   D_flow = 1;
   D_nonblock = defnonblock;
   D_userfd = fd;
-  GetLineHeight(1);
+  GetCellSize();
   D_readev.fd = D_writeev.fd = fd;
   D_readev.type  = EV_READ;
   D_writeev.type = EV_WRITE;
@@ -3819,10 +3819,12 @@ char **cmdv;
   close(slave);
 }
 
-int
-GetLineHeight(int force)
+int line_height = 0;
+int col_width = 0;
+
+static void
+GetCellSize(void)
 {
-  static int line_height;
   fd_set  rfd;
   struct timeval tval;
   char buf[100];
@@ -3832,17 +3834,18 @@ GetLineHeight(int force)
   int wp,hp,wc,hc;
   int i;
 
-  if (!force && line_height > 0) return line_height;
-  if (D_userfd < 0)
-    {
-      return 0;
-    }
+  if (D_userfd < 0) return;
 
 #ifdef  TIOCGWINSZ
   {
     struct winsize ws;
-    if (ioctl(D_userfd, TIOCGWINSZ, &ws) == 0 && ws.ws_ypixel > 0 && ws.ws_row > 0)
-      return (line_height = ws.ws_ypixel / ws.ws_row);
+    if (ioctl(D_userfd, TIOCGWINSZ, &ws) == 0 && ws.ws_xpixel > 0 &&
+        ws.ws_col > 0 && ws.ws_ypixel > 0 && ws.ws_row > 0)
+      {
+        col_width = ws.ws_xpixel / ws.ws_col;
+        line_height = ws.ws_ypixel / ws.ws_row;
+        return;
+      }
   }
 #endif
 
@@ -3863,13 +3866,18 @@ GetLineHeight(int force)
       p[len] = '\0';
 
       if (sscanf(buf,"\x1b[4;%d;%dt\x1b[8;%d;%dt",&hp,&wp,&hc,&wc) == 4)
-        return (line_height = hp / hc);
+        {
+          if (hp > 0 && wp > 0 && hc > 0 && wc > 0)
+            {
+              col_width = wp / wc;
+              line_height = hp / hc;
+            }
+          return;
+        }
 
       p += len;
       left -= len;
     }
-
-  return 0;
 }
 
 #endif /* BLANKER_PRG */
