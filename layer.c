@@ -333,10 +333,13 @@ int bce;
 	  RefreshArea(xs2, ys2, xe2, ye2, 1);
       }
   );
-  LayPause(l, 0);
-  if (l->l_cvlist) Flush(0);
-  LayPause(l, 1);
-  procLongSeq = origProcLongSeq;
+  if (procLongSeq)
+    {
+      LayPause(l, -1);
+      if (l->l_cvlist) Flush(0);
+      LayPause(l, 1);
+      procLongSeq = origProcLongSeq;
+    }
 }
 
 void
@@ -1318,8 +1321,8 @@ int pause;
     {
       struct viewport *vp;
 
-      if (!(layer)->l_cvlist->c_lnext || !cv->c_slorient)
-	continue;		/* Wasn't split, so already updated. */
+      if (!layer->l_cvlist->c_lnext || !cv->c_slorient)
+	continue;
 
       display = cv->c_display;
 

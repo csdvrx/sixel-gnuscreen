@@ -53,6 +53,14 @@ How to setup graphical and multiplexing terminal.
     Applications depending on SDL such as QEMU works on terminal emulators
    supporting sixel.
 
+  o mikutterm
+    http://bitbucket.org/arakiken/mikutterm/get/sixel.tar.gz
+
+    Simply, powerfully, and moefully teokure twitter client.
+
+  o tw-sixel
+    http://bitbucket.org/arakiken/tw/get/sixel.tar.gz
+
 * Note
   GNU screen with sixel supporting patch doesn't recognize sixel
  sequence itself but enables frontend terminal emulators to draw sixel
