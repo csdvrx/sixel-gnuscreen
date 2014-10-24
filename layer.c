@@ -335,7 +335,7 @@ int bce;
   );
   if (procLongSeq)
     {
-      LayPause(l, -1);
+      LayPause(l, 0);
       if (l->l_cvlist) Flush(0);
       LayPause(l, 1);
       procLongSeq = origProcLongSeq;
