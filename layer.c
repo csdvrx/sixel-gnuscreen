@@ -197,7 +197,6 @@ struct mline *ol;
 }
 
 extern int procLongSeq;	/* XXX */
-extern struct LayFuncs MarkLf;
 
 void
 LScrollV(l, n, ys, ye, bce)
@@ -210,14 +209,18 @@ int bce;
   struct viewport *vp;
   int ys2, ye2, xs2, xe2;
   int origProcLongSeq;
+  int orig_pause;
   if (n == 0)
     return;
-  if (l->l_pause.d)
+  if ((orig_pause = l->l_pause.d))
     LayPauseUpdateRegion(l, 0, l->l_width - 1, ys, ye);
-  if (procLongSeq == 0 && l->l_cvlist && !l->l_cvlist->c_lnext)
+  if (procLongSeq == 0 && ((l->l_cvlist && !l->l_cvlist->c_lnext) || orig_pause == 0))
     {
-      LayPause(l, 0);
-      Flush(0);
+      if (orig_pause)
+        {
+          LayPause(l, 0);
+          Flush(0);
+	}
       FOR_EACH_UNPAUSED_CANVAS(l,
         int ys3;
         int ye3;
@@ -244,10 +247,9 @@ int bce;
           }
         else
           {
-            n = -n;
-            if (ye3 - ys3 < n)
+            if (ye3 - ys3 < -n)
               {
-                for (i = 0; i < n; i++)
+                for (i = 0; i < -n; i++)
                   {
                     if (i > 0) LAY_DISPLAYS(l, AddRawStr("\x1b["));
                     sprintf(seq, "%d;%dH\x1b[%dX",
@@ -257,30 +259,44 @@ int bce;
               }
             else
               {
-                sprintf(seq, "%d;%dH\x1b[%dL", ys3 + 1, cv->c_xs + 1, n);
+                sprintf(seq, "%d;%dH\x1b[%dL", ys3 + 1, cv->c_xs + 1, -n);
                 LAY_DISPLAYS(l, AddRawStr(seq));
               }
           }
-        LAY_DISPLAYS(l, AddRawStr("\x1b[?69l\x1b["));
-        if (l->l_layfn == &MarkLf)
-          sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
-               ye3 + 1, cv->c_xs + 1);
+        LAY_DISPLAYS(l, AddRawStr("\x1b[?69l"));
+	if (orig_pause == 0)
+	  {
+	    if (!l->l_cvlist->c_lnext)
+	      {
+	        /* Corrupt screen without this in copy buffer mode. */
+	        if (n > 0 && ye3 - n + 1 >= 0)
+                  RefreshArea(cv->c_xs, ye3 - n + 1, cv->c_xe, ye3, 1);
+	        else if (n < 0 && ys3 - n - 1 >= 0)
+	          RefreshArea(cv->c_xs, ys3, cv->c_xe, ys3 - n - 1, 1);
+	      }
+	    sprintf(seq, "\x1b[%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
+	       ye3 + 1, cv->c_xs + 1);
+	  }
         else if (D_top > 0 || D_bot < D_height - 1)
-          sprintf(seq, "%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
+          sprintf(seq, "\x1b[%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
                cv->c_yoff + l->l_y + 1,
                cv->c_xoff + l->l_x + 1);
         else
-          sprintf(seq, "r\x1b[%d;%dH",
+          sprintf(seq, "\x1b[r\x1b[%d;%dH",
                cv->c_yoff + l->l_y + 1,
                cv->c_xoff + l->l_x + 1);
         LAY_DISPLAYS(l, AddRawStr(seq));
       );
       Flush(0);
-      LayPause(l, 1);
+      if (orig_pause)
+        {
+	  LayPause(l, 1);
+	  l->l_pause.d = orig_pause;
+	}
     }
 
   origProcLongSeq = procLongSeq;
-  if (l->l_cvlist && !l->l_cvlist->c_lnext)
+  if ((l->l_cvlist && !l->l_cvlist->c_lnext) || orig_pause == 0)
     /* Don't output sequence until procLongSeq = origProcLongSeq (see display.c) */
     procLongSeq = 1;
 
@@ -338,6 +354,7 @@ int bce;
       LayPause(l, 0);
       if (l->l_cvlist) Flush(0);
       LayPause(l, 1);
+      l->l_pause.d = orig_pause;
       procLongSeq = origProcLongSeq;
     }
 }
