@@ -270,9 +270,19 @@ int bce;
 	      {
 	        /* Corrupt screen without this in copy buffer mode. */
 	        if (n > 0 && ye3 - n + 1 >= 0)
-                  RefreshArea(cv->c_xs, ye3 - n + 1, cv->c_xe, ye3, 1);
-	        else if (n < 0 && ys3 - n - 1 >= 0)
-	          RefreshArea(cv->c_xs, ys3, cv->c_xe, ys3 - n - 1, 1);
+		  {
+		    /* RefreshArea() refreshes incorrect area without this cursor movement. */
+	            sprintf(seq, "\x1b[%d;%dH", ye3 -n + 2, cv->c_xs + 1);
+	            LAY_DISPLAYS(l, AddRawStr(seq));
+                    RefreshArea(cv->c_xs, ye3 - n + 1, cv->c_xe, ye3, 0);
+		  }
+	        else if (n < 0 && ys3 - n - 1 >= ys3)
+		  {
+		    /* RefreshArea() refreshes incorrect area without this cursor movement. */
+	            sprintf(seq, "\x1b[%d;%dH", ys3 + 1, cv->c_xs + 1);
+	            LAY_DISPLAYS(l, AddRawStr(seq));
+	            RefreshArea(cv->c_xs, ys3, cv->c_xe, ys3 - n - 1, 0);
+		  }
 	      }
 	    sprintf(seq, "\x1b[%d;%dr\x1b[%d;%dH", D_top+1, D_bot+1,
 	       ye3 + 1, cv->c_xs + 1);
